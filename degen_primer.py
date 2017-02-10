@@ -5,13 +5,10 @@ import itertools
 
 #primer = sys.argv[1]
 seq_file = sys.argv[1]
-#primer = 'GGTTACCTTGTTACGACTT'
-primer = 'GWAS'
+#seq = 'GGTTACCTTGTTACGACTT'
+primer = 'CATTAGCGGCCAGNATGCT'
+mismatch = 1
 
-bases = {'A': 'A', 'C': 'C', 'G': 'G', 'T': 'T', 'W': ['A', 'T'],
-		 'S': ['C', 'G'], 'M': ['A', 'C'], 'K': ['G', 'T'], 'R': ['A', 'G'],
-		 'Y': ['C', 'T'], 'B': ['C', 'G', 'T'], 'D': ['A', 'G', 'T'],
-		 'H': ['A', 'C', 'T'], 'V': ['A', 'C', 'G'], 'N': ['A', 'C', 'G', 'T']}
 
 
 
@@ -37,42 +34,82 @@ def reverse_complement(sequences):
 def search(primers, seq):
 	'''Inputs a list of primers and a sequence to search for the primers.
 	   Prints sequence id, position and primer for each hit'''
-	positions = set()
+	positions = []
+	print(primers)
 	for prime in primers:
 		if prime in seq:
-			positions.add(seq.index(prime)+1)
-	for p in sorted(positions):
-		print('sequence id: {}, position: {}, primer: {}'.format(save_id, p, seq[p-1:p+len(primer)-1]))
+			positions.append(((seq.index(prime)+1), prime))
 	if positions:
+		print(positions)
+		print_positions(positions)
 		return(True)
+
+
+def fuzzy_search(primers, seq):
+	positions = []
+	for prime in primers:
+		start = -1
+		i = 0
+		while i < len(seq)-1:
+			mism = 0
+			start += 1
+			for i, j in zip(range(start,len(seq)), range(len(prime))):
+				if seq[i] == prime[j]:
+					if j == len(prime)-1 and ((start+1), prime) not in positions:
+						positions.append(((start+1), prime))
+				else:
+					mism += 1
+					if mism < mismatch and j == len(prime)-1 and ((start+1), prime) not in positions:
+						positions.append(((start+1), prime))
+					elif mism > mismatch:
+						break
+	if positions:
+		print_positions(positions)
+		return(True)
+
+
+def print_positions(positions):
+	positions.sort(key=lambda pair: pair[0])
+	for i in range(len(positions)):
+		print('sequence id: {}, position: {}, primer: {}'.format(save_id, positions[i][0], positions[i][1]))
+
+
+
+bases = {'A': 'A', 'C': 'C', 'G': 'G', 'T': 'T', 'W': ['A', 'T'],
+		 'S': ['C', 'G'], 'M': ['A', 'C'], 'K': ['G', 'T'], 'R': ['A', 'G'],
+		 'Y': ['C', 'T'], 'B': ['C', 'G', 'T'], 'D': ['A', 'G', 'T'],
+		 'H': ['A', 'C', 'T'], 'V': ['A', 'C', 'G'], 'N': ['A', 'C', 'G', 'T']}
 
 
 # Specify not-degenerate primer
 primer_seq = [bases[base] for base in primer]
-# Create list of forward and reverse primers
-sequences = possible_primers(primer_seq)
-rev_primers = reverse_complement(sequences)
+# Create lists of forward and reverse primers
+forw_primers = possible_primers(primer_seq)
+rev_primers = reverse_complement(forw_primers)
+primers = list(set(forw_primers + rev_primers))
+
 
 
 # Prints possible primers
-print('Forward primers: {}'.format(' '.join(sequences)))
+print('Forward primers: {}'.format(' '.join(forw_primers)))
 print('Reverse primers: {}'.format(' '.join(rev_primers)))
+
+
 
 
 # Run through sequences in fasta file and search for primers
 with open(seq_file, 'r') as inf:
-	sequences.extend(rev_primers)        # all possible primers 
 	seq = ''
 	found = False
 	for line in inf:
 		if line[0] == '>':
 			if seq:					     # when seq is complete
-				found = search(sequences, seq)     # search for primers
+				found = fuzzy_search(primers, seq)     # search for primers
 			save_id = line.rstrip()[1:]
 			seq = ''				     # reset seq
 		else:
 			seq += line.rstrip()         # extend sequence (spanning multiple lines in file)
-	found = search(sequences, seq)       # searches final sequence
+	found = fuzzy_search(primers, seq)       # searches final sequence
 	if not found:
 		print('Primer not in sequence')
 
