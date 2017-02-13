@@ -42,7 +42,8 @@ parser.add_argument(
 	'-o',
 	dest = 'outfile',
 	metavar = 'OUTFILE',
-	type = 
+	type = argparse.FileType('w'),
+	default = sys.stdout,
 	help = 'output file, else write to STDOUT'
 	)
 
@@ -53,8 +54,6 @@ args = parser.parse_args()
 if args.infile:
 	if not os.path.isfile(args.infile):
 		print('ERROR: Inputfile {} does not exist'.format(args.infile))
-
-
 
 
 # Script functions
@@ -156,7 +155,7 @@ print('#Reverse primers: {}'.format(' '.join(rev_primers)), file = args.outfile)
 
 # Run through sequences in fasta file and search for primers
 if args.infile:
-	with open(args.infile, 'r') as inf, open(output, 'w') as outf:
+	with open(args.infile, 'r') as inf:
 		seq = ''
 		match = False
 		for line in inf:
